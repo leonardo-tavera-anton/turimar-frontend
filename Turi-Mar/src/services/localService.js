@@ -72,6 +72,74 @@ export async function getPublicLocals() {
   }
 }
 
+export async function uploadLocalImage(file, userId) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file?.type)) throw new Error("Selecciona una imagen JPG, PNG o WebP.");
+  if (file.size > 5 * 1024 * 1024) throw new Error("La imagen no puede superar los 5 MB.");
+  const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]/g, "-");
+  const objectPath = `${userId}/${crypto.randomUUID()}-${safeName}`;
+  const { error } = await supabase.storage.from("locales").upload(objectPath, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false,
+  });
+  if (error) throw new Error(`No se pudo subir la imagen: ${error.message}`);
+  const { data } = supabase.storage.from("locales").getPublicUrl(objectPath);
+  return data.publicUrl;
+}
+
+export async function getLocalRating(localId) {
+  try {
+    const response = await request(`/api/v1/calificaciones/local/${encodeURIComponent(localId)}`);
+    return response?.data ?? response;
+  } catch (error) {
+    if (!canUseSupabaseFallback(error)) throw error;
+    const { data, error: queryError } = await supabase
+      .from("resumen_calificaciones_locales")
+      .select("promedio,total")
+      .eq("local_id", localId)
+      .maybeSingle();
+    if (queryError) throw new Error(`No se pudieron cargar las estrellas: ${queryError.message}`);
+    return data ?? { promedio: 0, total: 0 };
+  }
+}
+
+export async function getMyLocalRating(localId, userId) {
+  const { data, error } = await supabase
+    .from("calificaciones")
+    .select("estrellas")
+    .eq("usuario_id", userId)
+    .eq("entidad_tipo", "local")
+    .eq("entidad_id", localId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo comprobar tu calificación: ${error.message}`);
+  return data?.estrellas ?? null;
+}
+
+export async function rateLocal(localId, userId, stars) {
+  const payload = { usuario_id: userId, entidad_tipo: "local", entidad_id: Number(localId), estrellas: stars };
+  try {
+    return await request("/api/v1/calificaciones", { method: "POST", body: JSON.stringify(payload) });
+  } catch (error) {
+    if (!canUseSupabaseFallback(error)) throw error;
+    const { data: existing, error: lookupError } = await supabase
+      .from("calificaciones")
+      .select("id")
+      .eq("usuario_id", userId)
+      .eq("entidad_tipo", "local")
+      .eq("entidad_id", localId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lookupError) throw new Error(`No se pudo guardar la calificación: ${lookupError.message}`);
+    if (existing) throw new Error("Ya calificaste este local. Solo se permite una calificación por persona.");
+    const { error: saveError } = await supabase.from("calificaciones").insert(payload);
+    if (saveError) throw new Error(`No se pudo guardar la calificación: ${saveError.message}`);
+    return payload;
+  }
+}
+
 export function createLocal(local) {
   return request("/api/v1/locales", {
     method: "POST",
