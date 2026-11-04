@@ -400,9 +400,9 @@ const resultImages = {
     "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=480&h=320&fit=crop&auto=format",
   ],
   Cevicherías: [
-    "https://crecemosjuntos.com.pe/wp-content/uploads/2023/09/Portada-Testimonial-Mil-Sabores.webp",
-    "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1547592180-85f173990554?w=480&h=320&fit=crop&auto=format",
+    "/images/mil_sabores.jpeg",
+    "/images/rico_chimbote.jpeg",
+    "/images/taypa_chimbote.jpeg",
   ],
   "Atractivos Turísticos": [
     "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=480&h=320&fit=crop&auto=format",
