@@ -24,6 +24,7 @@ export default function RouteCreator({ onBack, routeError }) {
   const [title, setTitle] = useState("");
   const [titleLocked, setTitleLocked] = useState(false);
   const [category, setCategory] = useState("cultural");
+  const [showOwnerName, setShowOwnerName] = useState(true);
   const [stopName, setStopName] = useState("");
   const [stopNote, setStopNote] = useState("");
   const [selectedPosition, setSelectedPosition] = useState(null);
@@ -187,6 +188,8 @@ export default function RouteCreator({ onBack, routeError }) {
         titulo: title.trim(),
         descripcion: points.map((point) => point.comment).filter(Boolean).join(" "),
         categoria: category,
+        es_publica: true,
+        mostrar_propietario: showOwnerName,
         duracion_total_horas: Math.max(1, Number((points.length * 35 / 60).toFixed(2))),
         presupuesto_total_estimado: points.length * 12,
       };
@@ -266,6 +269,11 @@ export default function RouteCreator({ onBack, routeError }) {
             <select value={category} onChange={(event) => setCategory(event.target.value)}>
               {categories.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
             </select>
+          </label>
+
+          <label className="route-owner-visibility">
+            <input type="checkbox" checked={showOwnerName} onChange={(event) => setShowOwnerName(event.target.checked)} />
+            <span>Mostrar mi nombre como dueño de esta ruta</span>
           </label>
 
           <div className="route-create-stop-editor">
