@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./Dashboard.css";
 import RealMap from "../components/dashboard/RealMap";
 import { getDrivingRoute } from "../services/directionsService";
-import { getLocalMenu } from "../services/localService";
+import { getLocalMenu, getLocalRating, rateLocal } from "../services/localService";
+import { supabase } from "../supabaseClient";
 
 // Pantalla de resultados de una guía: lista, filtros, mapa visual y ficha.
 export default function ResultadosBusqueda({
@@ -29,6 +30,38 @@ export default function ResultadosBusqueda({
   const [publicMenuOpen, setPublicMenuOpen] = useState(false);
   const [publicMenuLoading, setPublicMenuLoading] = useState(false);
   const [publicMenuError, setPublicMenuError] = useState("");
+  const [ratings, setRatings] = useState({});
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    if (!activeLocation?.isCommunityLocal || !activeLocation.id) return undefined;
+    getLocalRating(activeLocation.id)
+      .then((rating) => { if (active) setRatings((current) => ({ ...current, [activeLocation.id]: rating })); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [activeLocation?.id, activeLocation?.isCommunityLocal]);
+
+  const submitLocalRating = async (stars) => {
+    if (!activeLocation?.isCommunityLocal) return;
+    setRatingSaving(true);
+    setRatingMessage("");
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!user) throw new Error("Inicia sesión para calificar este local.");
+      await rateLocal(activeLocation.id, user.id, stars);
+      const summary = await getLocalRating(activeLocation.id);
+      setRatings((current) => ({ ...current, [activeLocation.id]: summary }));
+      setActiveLocation((current) => current ? { ...current, rating: Number(summary.promedio ?? 0).toFixed(1), ratingCount: summary.total ?? 0 } : current);
+      setRatingMessage("¡Gracias por tu calificación!");
+    } catch (error) {
+      setRatingMessage(error instanceof Error ? error.message : "No se pudo guardar tu calificación.");
+    } finally {
+      setRatingSaving(false);
+    }
+  };
 
   const selectLocation = (location) => {
     navigationController.current?.abort();
@@ -38,6 +71,7 @@ export default function ResultadosBusqueda({
     setPublicMenu([]);
     setPublicMenuOpen(false);
     setPublicMenuError("");
+    setRatingMessage("");
     setActiveLocation(location);
     setZoomOnSelection(true);
   };
@@ -114,9 +148,13 @@ export default function ResultadosBusqueda({
   // Selecciona imágenes y filtros según la categoría actual.
   const images = resultImages[guide.title] ?? resultImages["Plan de Ruta"];
   const extraFilters = resultFilters[guide.title] ?? ["Más recomendados", "Más cercanos"];
+  const ratedLocations = locations.map((location) => {
+    const summary = ratings[location.id];
+    return summary ? { ...location, rating: Number(summary.promedio ?? 0).toFixed(1), ratingCount: summary.total ?? 0 } : location;
+  });
 
   // Filtra la lista según la ciudad seleccionada.
-  const visibleLocations = locations.filter((location) => {
+  const visibleLocations = ratedLocations.filter((location) => {
     if (activeTab === "Chimbote") return !location.address.toLowerCase().includes("nuevo");
     if (activeTab === "Nuevo Chimbote") return location.address.toLowerCase().includes("nuevo");
     return true;
@@ -200,11 +238,11 @@ export default function ResultadosBusqueda({
                 </span>
                 <span className="location-copy">
                   <strong>{location.name}</strong>
-                  <small>★ {location.rating} · {location.type}</small>
+                  <small>★ {location.rating}{location.ratingCount ? ` (${location.ratingCount})` : ""} · {location.type}</small>
                   <small>⌖ {location.address}</small>
                   <span className="location-price">
                     <b>{location.price ?? "Consultar"}</b>
-                    <i>{location.isCommunityLocal ? "Publicado por propietario" : location.distance ?? (locationIndex === 0 ? "650 m" : locationIndex === 1 ? "1.2 km" : "A 3 cuadras")}</i>
+                    <i>{location.isCommunityLocal ? (location.ownerName ? `Por ${location.ownerName}` : "Publicado por la comunidad") : location.distance ?? (locationIndex === 0 ? "650 m" : locationIndex === 1 ? "1.2 km" : "A 3 cuadras")}</i>
                   </span>
                 </span>
                 <span className="location-direction">⌖</span>
@@ -252,8 +290,19 @@ export default function ResultadosBusqueda({
               <p>{activeLocation.address}</p>
               <b>{activeLocation.price ?? "Consultar con el local"}</b>
               {activeLocation.isCommunityLocal ? (
-                <p className="detail-meta">Publicado por un propietario de Turi-Mar</p>
+                <p className="detail-meta">{activeLocation.ownerName ? `Publicado por ${activeLocation.ownerName}` : "Publicado por un propietario de Turi-Mar"}</p>
               ) : <p className="detail-meta">A 650 m · 7 min a pie</p>}
+              {activeLocation.isCommunityLocal && (
+                <div className="local-rating-control">
+                  <strong>{ratings[activeLocation.id]?.total ? `${Number(ratings[activeLocation.id].promedio).toFixed(1)} de 5 · ${ratings[activeLocation.id].total} calificaciones` : "Califica este local"}</strong>
+                  <div role="group" aria-label={`Calificar ${activeLocation.name}`}>
+                    {[1, 2, 3, 4, 5].map((stars) => (
+                      <button type="button" key={stars} aria-label={`${stars} estrellas`} disabled={ratingSaving} onClick={() => submitLocalRating(stars)}>★</button>
+                    ))}
+                  </div>
+                  {ratingMessage && <small role="status">{ratingMessage}</small>}
+                </div>
+              )}
               {activeLocation.isCommunityLocal && (
                 <button type="button" className="public-menu-toggle" onClick={togglePublicMenu}>
                   {publicMenuOpen ? "Ocultar carta" : "Ver carta"}

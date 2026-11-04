@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient";
 import RealMap from "../components/dashboard/RealMap";
-import { createLocal, createLocalDish, deleteLocal, getLocalMenu, getOwnerLocals, updateLocal } from "../services/localService";
+import { createLocal, createLocalDish, deleteLocal, getLocalMenu, getOwnerLocals, updateLocal, uploadLocalImage } from "../services/localService";
 import { reverseGeocode } from "../services/placeLookup";
 import { deleteUserRoute, getCachedUserRoutes, getRoutePoints, getUserRoutes } from "../services/routeService";
 import { getDrivingRoute } from "../services/directionsService";
@@ -32,6 +32,7 @@ export default function PerfilCuenta({ profile, onBack }) {
     horario: "",
     telefono: "",
     descripcion: "",
+    imagen_url: "",
     latitud: "",
     longitud: "",
   });
@@ -45,6 +46,8 @@ export default function PerfilCuenta({ profile, onBack }) {
   const [dishForm, setDishForm] = useState({ nombre: "", descripcion: "", precio: "" });
   const [localsLoading, setLocalsLoading] = useState(false);
   const [localSaving, setLocalSaving] = useState(false);
+  const [localImageFile, setLocalImageFile] = useState(null);
+  const [localImagePreview, setLocalImagePreview] = useState("");
   const [editingLocalId, setEditingLocalId] = useState(null);
   const [deletingLocalId, setDeletingLocalId] = useState(null);
   const [addressLookupStatus, setAddressLookupStatus] = useState("");
@@ -288,7 +291,10 @@ export default function PerfilCuenta({ profile, onBack }) {
   };
 
   const resetLocalForm = () => {
-    setLocalForm({ nombre: "", categoria: "restaurante", direccion: "", horario: "", telefono: "", descripcion: "", latitud: "", longitud: "" });
+    setLocalForm({ nombre: "", categoria: "restaurante", direccion: "", horario: "", telefono: "", descripcion: "", imagen_url: "", latitud: "", longitud: "" });
+    if (localImagePreview.startsWith("blob:")) URL.revokeObjectURL(localImagePreview);
+    setLocalImagePreview("");
+    setLocalImageFile(null);
     setEditingLocalId(null);
   };
 
@@ -316,6 +322,7 @@ export default function PerfilCuenta({ profile, onBack }) {
       direccion: localForm.direccion.trim(),
       horario: localForm.horario.trim(),
       telefono: localForm.telefono.trim(),
+      imagen_url: localForm.imagen_url || null,
       latitud: latitude,
       longitud: longitude,
     };
@@ -323,6 +330,7 @@ export default function PerfilCuenta({ profile, onBack }) {
     setLocalSaving(true);
     setMessage("");
     try {
+      if (localImageFile) payload.imagen_url = await uploadLocalImage(localImageFile, profile.id);
       if (editingLocalId) await updateLocal(editingLocalId, payload);
       else await createLocal(payload);
       const successMessage = editingLocalId ? "Local actualizado." : "Local publicado correctamente.";
@@ -342,6 +350,7 @@ export default function PerfilCuenta({ profile, onBack }) {
   };
 
   const editLocal = (local) => {
+    if (localImagePreview.startsWith("blob:")) URL.revokeObjectURL(localImagePreview);
     setLocalForm({
       nombre: local.nombre ?? "",
       categoria: local.categoria ?? "restaurante",
@@ -349,9 +358,12 @@ export default function PerfilCuenta({ profile, onBack }) {
       horario: local.horario ?? "",
       telefono: local.telefono ?? "",
       descripcion: local.descripcion ?? "",
+      imagen_url: local.imagen_url ?? "",
       latitud: String(local.latitud ?? local.latitude ?? ""),
       longitud: String(local.longitud ?? local.longitude ?? ""),
     });
+    setLocalImageFile(null);
+    setLocalImagePreview(local.imagen_url ?? "");
     setEditingLocalId(local.id);
     setMessage("");
     setTab("add-local");
@@ -694,6 +706,23 @@ export default function PerfilCuenta({ profile, onBack }) {
                   Descripción
                   <textarea value={localForm.descripcion} rows={3} onChange={(event) => setLocalForm((current) => ({ ...current, descripcion: event.target.value }))} />
                 </label>
+                <div className="full-width fig-local-image-field">
+                  <label htmlFor="local-image-upload">Imagen del local <small>(JPG, PNG o WebP · máximo 5 MB)</small></label>
+                  <input id="local-image-upload" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    if (localImagePreview.startsWith("blob:")) URL.revokeObjectURL(localImagePreview);
+                    setLocalImageFile(file);
+                    setLocalImagePreview(URL.createObjectURL(file));
+                  }} />
+                  {localImagePreview && <img className="fig-local-image-preview" src={localImagePreview} alt="Vista previa de la imagen del local" />}
+                  {localImagePreview && <button type="button" className="fig-secondary" onClick={() => {
+                    if (localImagePreview.startsWith("blob:")) URL.revokeObjectURL(localImagePreview);
+                    setLocalImageFile(null);
+                    setLocalImagePreview("");
+                    setLocalForm((current) => ({ ...current, imagen_url: "" }));
+                  }}>Quitar imagen</button>}
+                </div>
                 <label>
                   Dirección
                   <input value={localForm.direccion} placeholder="Haz clic en el mapa para detectar la dirección" onChange={(event) => { setLocalForm((current) => ({ ...current, direccion: event.target.value })); setAddressLookupStatus(""); }} />

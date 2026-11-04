@@ -114,7 +114,10 @@ function toPublicLocation(local) {
     image_url: local.imagen_url ?? null,
     ownerName: local.propietario_nombre ?? local.nombre_propietario ?? local.usuario?.nombre ?? local.owner?.nombre ?? "",
     price: "Consultar",
-    rating: "Sin reseñas",
+    rating: Number(local.promedio_estrellas ?? local.promedio_calificacion ?? 0) > 0
+      ? Number(local.promedio_estrellas ?? local.promedio_calificacion).toFixed(1)
+      : "Sin reseñas",
+    ratingCount: Number(local.cantidad_calificaciones ?? 0),
     icon: "⌂",
     isCommunityLocal: true,
   };
@@ -761,6 +764,32 @@ function CommunityRouteDetail({ route, onBack }) {
   );
 }
 
+function CommunityRouteList({ routes, onBack, onSelect }) {
+  return (
+    <main className="community-route-list-page">
+      <header className="public-route-detail-header">
+        <button type="button" onClick={onBack}>← Volver al inicio</button>
+        <span>EXPLORA TURI-MAR</span>
+      </header>
+      <div className="community-route-list-heading">
+        <div><span>RECORRIDOS COMPARTIDOS</span><h1>Rutas de la comunidad</h1><p>Elige un recorrido para ver sus paradas y el mapa.</p></div>
+        <strong>{routes.length} rutas</strong>
+      </div>
+      {routes.length ? <div className="community-route-list-grid">
+        {routes.map((route) => {
+          const stops = route.puntos ?? route.ruta_puntos ?? route.points ?? [];
+          const owner = route.propietario_nombre ?? route.nombre_propietario ?? route.usuario?.nombre ?? route.owner?.nombre;
+          return <button className="community-route-list-card" key={route.id ?? route.ruta_id} onClick={() => onSelect(route)}>
+            <span className="community-route-list-image" style={{ backgroundImage: `url("${getRouteImage(route.categoria)}")` }} />
+            <span className="community-route-list-copy"><small>{route.categoria || "Ruta general"}</small><strong>{route.titulo ?? route.titulo_ruta ?? route.title ?? "Ruta de la comunidad"}</strong>{route.mostrar_propietario !== false && owner && <span>Por {owner}</span>}<span>{stops.length} {stops.length === 1 ? "parada" : "paradas"}</span></span>
+            <span className="community-route-list-open">Ver recorrido →</span>
+          </button>;
+        })}
+      </div> : <p className="community-section-status">Todavía no hay rutas públicas para mostrar.</p>}
+    </main>
+  );
+}
+
 export default function Dashboard({ onLogout, rutaData, routeError }) {
   const [notice, setNotice] = useState(DEFAULT_NOTICE);
   const [selectedGuide, setSelectedGuide] = useState(null);
@@ -771,6 +800,7 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [routesLoadError, setRoutesLoadError] = useState("");
   const [selectedPublicRoute, setSelectedPublicRoute] = useState(null);
+  const [showCommunityRouteList, setShowCommunityRouteList] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -810,6 +840,9 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
   }
   if (selectedPublicRoute) {
     return <CommunityRouteDetail route={selectedPublicRoute} onBack={() => setSelectedPublicRoute(null)} />;
+  }
+  if (showCommunityRouteList) {
+    return <CommunityRouteList routes={publicRoutes} onBack={() => setShowCommunityRouteList(false)} onSelect={setSelectedPublicRoute} />;
   }
   if (selectedGuide)
     if (selectedGuide.title === "Plan de Ruta") {
@@ -885,7 +918,7 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
               const publicLocal = toPublicLocation(local);
               return <button className="community-local-card" type="button" key={local.id} onClick={() => setSelectedGuide({ title: "Locales de la comunidad" })}>
                 {publicLocal.image_url ? <img src={publicLocal.image_url} alt="" /> : <span className="community-local-card-placeholder">⌂</span>}
-                <span className="community-local-card-copy"><small>{publicLocal.type}</small><strong>{publicLocal.name}</strong><span>{publicLocal.address}</span></span>
+                <span className="community-local-card-copy"><small>{publicLocal.type}</small><strong>{publicLocal.name}</strong><span>{publicLocal.ownerName ? `Por ${publicLocal.ownerName}` : publicLocal.address}</span><span>★ {publicLocal.rating}{publicLocal.ratingCount ? ` · ${publicLocal.ratingCount}` : ""}</span></span>
                 <span className="community-local-card-arrow">→</span>
               </button>;
             })}
@@ -895,6 +928,11 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
           <div className="section-title"><div><h2>Rutas de la comunidad</h2><p>Recorridos compartidos por quienes conocen la bahía.</p></div></div>
           {routesLoadError && <p className="public-routes-status">No se pudieron cargar las rutas públicas.</p>}
           {!routesLoadError && publicRoutes.length === 0 && <p className="public-routes-status">Aún no hay rutas públicas para mostrar.</p>}
+          <button type="button" className="community-route-entry" onClick={() => setShowCommunityRouteList(true)}>
+            <span className="community-route-entry-image" style={{ backgroundImage: `url("${communityRouteImages.playa}")` }} />
+            <span><small>RECORRIDOS DE LA COMUNIDAD</small><strong>Explora todas las rutas</strong><em>{publicRoutes.length} rutas con mapa y paradas</em></span>
+            <b>Ver rutas <i>→</i></b>
+          </button>
           <div className="public-routes-grid">
             {publicRoutes.map((route) => {
               const stops = route.puntos ?? route.ruta_puntos ?? route.points ?? [];
