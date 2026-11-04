@@ -230,25 +230,31 @@ const locationsByGuide = {
   ],
   "Atractivos Turísticos": [
     {
-      name: "Cerro de la Paz",
-      type: "Mirador",
+      name: "Plaza Almirante Miguel Grau",
+      latitude: -9.078296669990191,
+      longitude: -78.59004909091561,
+      type: "Plaza hist�rica",
       address: "Chimbote",
       price: "Acceso libre",
       rating: "4.7",
-      icon: "⛰️",
-    },
-    {
-      name: "Huaca San Pedro",
-      type: "Sitio arqueológico",
-      address: "Nuevo Chimbote",
-      price: "Desde S/ 8",
-      rating: "4.5",
       icon: "🏛️",
     },
     {
-      name: "Vivero Forestal",
-      type: "Área recreativa",
-      address: "Av. Argentina",
+      name: "Plaza de Armas de Chimbote",
+      latitude: -9.074461920264289,
+      longitude: -78.59360195987978,
+      type: "Plaza principal",
+      address: "Chimbote",
+      price: "Acceso libre",
+      rating: "4.6",
+      icon: "🏛️",
+    },
+    {
+      name: "Vivero Forestal Chimbote",
+      latitude: -9.057117661594846,
+      longitude: -78.59228740382939,
+      type: "�rea recreativa",
+      address: "Chimbote",
       price: "Acceso libre",
       rating: "4.6",
       icon: "🌿",
@@ -397,45 +403,45 @@ const locationsByGuide = {
 // Imágenes de ejemplo para las tarjetas de resultados.
 const resultImages = {
   "Plan de Ruta": [
-    "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=480&h=320&fit=crop&auto=format",
+    "/images/mil_sabores.jpeg",
+    "/images/rico_chimbote.jpeg",
+    "/images/taypa_chimbote.jpeg",
   ],
-  Cevicherías: [
+  "Cevicherías": [
     "/images/mil_sabores.jpeg",
     "/images/rico_chimbote.jpeg",
     "/images/taypa_chimbote.jpeg",
   ],
   "Atractivos Turísticos": [
-    "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1539650116574-75c0c6d73f6e?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=480&h=320&fit=crop&auto=format",
+    "/images/Plaza-Grau-Chimbote.jpg",
+    "/images/plaza_de_armas.jpg",
+    "/images/vivero_forestal.jpeg",
   ],
   "Pasajes & Colectivos": [
-    "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1494515843206-f3117d3f51b7?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=480&h=320&fit=crop&auto=format",
+    "/images/rico_chimbote.jpeg",
+    "/images/taypa_chimbote.jpeg",
+    "/images/mil_sabores.jpeg",
   ],
   "Ruta de Playas": [
-    "https://images.unsplash.com/photo-1507520086101-6c3f7c5e2f19?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=480&h=320&fit=crop&auto=format",
+    "/images/taypa_chimbote.jpeg",
+    "/images/rico_chimbote.jpeg",
+    "/images/mil_sabores.jpeg",
   ],
   "Eventos Locales": [
-    "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=480&h=320&fit=crop&auto=format",
+    "/images/rico_chimbote.jpeg",
+    "/images/mil_sabores.jpeg",
+    "/images/taypa_chimbote.jpeg",
   ],
   Hostales: [
-    "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1564501049412-61c2a3083791?w=480&h=320&fit=crop&auto=format",
+    "/images/mil_sabores.jpeg",
+    "/images/rico_chimbote.jpeg",
+    "/images/taypa_chimbote.jpeg",
+    "/images/mil_sabores.jpeg",
   ],
   "Puntos de Comida": [
-    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=480&h=320&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=480&h=320&fit=crop&auto=format",
+    "/images/mil_sabores.jpeg",
+    "/images/rico_chimbote.jpeg",
+    "/images/taypa_chimbote.jpeg",
   ],
 };
 
@@ -679,11 +685,11 @@ function AiRoutePreview({ rutaData, routeError, onOpen }) {
 // Dashboard principal. Decide si muestra las guías o los resultados
 // y mantiene los avisos temporales de los botones superiores.
 const communityRouteImages = {
-  gastronomia: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=720&h=420&fit=crop&auto=format",
-  naturaleza: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=720&h=420&fit=crop&auto=format",
-  playa: "https://images.unsplash.com/photo-1507520086101-6c3f7c5e2f19?w=720&h=420&fit=crop&auto=format",
-  cultural: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=720&h=420&fit=crop&auto=format",
-  default: "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=720&h=420&fit=crop&auto=format",
+  gastronomia: "/images/mil_sabores.jpeg",
+  naturaleza: "/images/mil_sabores.jpeg",
+  playa: "/images/mil_sabores.jpeg",
+  cultural: "/images/mil_sabores.jpeg",
+  default: "/images/mil_sabores.jpeg",
 };
 const EMPTY_ROUTE_POINTS = [];
 
