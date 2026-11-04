@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./Dashboard.css";
 import ResultadosBusqueda from "./ResultadosBusqueda";
 import RouteCreator from "./RouteCreator";
@@ -7,6 +7,7 @@ import { supabase } from "../supabaseClient";
 import PerfilCuenta from "./PerfilCuenta";
 import { getLocalMenu, getPublicLocals } from "../services/localService";
 import { getPublicRoutes } from "../services/routeService";
+import { getDrivingRoute } from "../services/directionsService";
 
 // Mensaje inicial que aparece en el estado del radar costero.
 const DEFAULT_NOTICE = "GPS sincronizado: Caleta & Malecón Miguel Grau";
@@ -677,6 +678,89 @@ function AiRoutePreview({ rutaData, routeError, onOpen }) {
 
 // Dashboard principal. Decide si muestra las guías o los resultados
 // y mantiene los avisos temporales de los botones superiores.
+const communityRouteImages = {
+  gastronomia: "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=720&h=420&fit=crop&auto=format",
+  naturaleza: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=720&h=420&fit=crop&auto=format",
+  playa: "https://images.unsplash.com/photo-1507520086101-6c3f7c5e2f19?w=720&h=420&fit=crop&auto=format",
+  cultural: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=720&h=420&fit=crop&auto=format",
+  default: "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=720&h=420&fit=crop&auto=format",
+};
+const EMPTY_ROUTE_POINTS = [];
+
+function getRouteImage(category = "") {
+  const normalized = (category ?? "").toLowerCase();
+  if (/gastro|comida|restaurante/.test(normalized)) return communityRouteImages.gastronomia;
+  if (/natur|forest|ecotur/.test(normalized)) return communityRouteImages.naturaleza;
+  if (/playa|marina|caleta|costa/.test(normalized)) return communityRouteImages.playa;
+  if (/cultur|historia|mirador/.test(normalized)) return communityRouteImages.cultural;
+  return communityRouteImages.default;
+}
+
+function CommunityRouteDetail({ route, onBack }) {
+  const rawPoints = route.puntos ?? route.ruta_puntos ?? route.points ?? EMPTY_ROUTE_POINTS;
+  const points = useMemo(() => [...rawPoints]
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+    .map((point, index) => ({
+      name: point.nombre ?? point.name ?? `Parada ${index + 1}`,
+      address: point.comentario_tramo ?? point.address ?? `Parada ${index + 1}`,
+      latitude: Number(point.latitud ?? point.latitude),
+      longitude: Number(point.longitud ?? point.longitude),
+      kind: index === 0 ? "start" : "stop",
+    })), [rawPoints]);
+  const owner = route.propietario_nombre ?? route.nombre_propietario ?? route.usuario?.nombre ?? route.owner?.nombre;
+  const mapPoints = useMemo(() => points.filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude)), [points]);
+  const [routeLine, setRouteLine] = useState([]);
+  const [routeLineError, setRouteLineError] = useState(false);
+
+  useEffect(() => {
+    if (mapPoints.length < 2) {
+      setRouteLine([]);
+      return undefined;
+    }
+    const controller = new AbortController();
+    Promise.all(mapPoints.slice(0, -1).map((point, index) => getDrivingRoute(point, mapPoints[index + 1], controller.signal)))
+      .then((segments) => {
+        if (!controller.signal.aborted) {
+          setRouteLine(segments.flatMap((segment, index) => index === 0 ? segment.coordinates : segment.coordinates.slice(1)));
+          setRouteLineError(false);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setRouteLineError(true);
+      });
+    return () => controller.abort();
+  }, [mapPoints]);
+
+  return (
+    <main className="public-route-detail-page">
+      <header className="public-route-detail-header">
+        <button type="button" onClick={onBack}>← Volver a explorar</button>
+        <span>RUTA DE LA COMUNIDAD</span>
+      </header>
+      <div className="public-route-detail-heading">
+        <div>
+          <span>{route.categoria || "Ruta general"}</span>
+          <h1>{route.titulo ?? route.titulo_ruta ?? route.title ?? "Ruta de la comunidad"}</h1>
+          {route.mostrar_propietario !== false && owner && <p>Compartida por {owner}</p>}
+          {route.descripcion && <p>{route.descripcion}</p>}
+        </div>
+        <strong>{points.length} paradas</strong>
+      </div>
+      <div className="public-route-detail-layout">
+        <section className="public-route-detail-map" aria-label="Mapa de la ruta">
+          {mapPoints.length ? <><RealMap locations={mapPoints} routeLine={routeLine} fitLocations showUserMarker={false} requestUserLocation={false} showToolbar={false} />{routeLineError && <small className="public-route-map-status">Se muestran las paradas; no se pudo trazar el camino.</small>}</> : <p>Esta ruta no tiene coordenadas disponibles para mostrar el mapa.</p>}
+        </section>
+        <section className="public-route-stops-panel">
+          <h2>Recorrido</h2>
+          {points.length ? <ol>{points.map((point, index) => (
+            <li key={`${point.name}-${index}`}><span>{index + 1}</span><div><strong>{point.name}</strong>{point.address && <small>{point.address}</small>}</div></li>
+          ))}</ol> : <p>Esta ruta aún no tiene paradas publicadas.</p>}
+        </section>
+      </div>
+    </main>
+  );
+}
+
 export default function Dashboard({ onLogout, rutaData, routeError }) {
   const [notice, setNotice] = useState(DEFAULT_NOTICE);
   const [selectedGuide, setSelectedGuide] = useState(null);
@@ -686,6 +770,7 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
   const [localsLoadError, setLocalsLoadError] = useState("");
   const [publicRoutes, setPublicRoutes] = useState([]);
   const [routesLoadError, setRoutesLoadError] = useState("");
+  const [selectedPublicRoute, setSelectedPublicRoute] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -722,6 +807,9 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
   };
   if (profileOpen) {
     return <PerfilCuenta profile={profile} onBack={() => setProfileOpen(false)} />;
+  }
+  if (selectedPublicRoute) {
+    return <CommunityRouteDetail route={selectedPublicRoute} onBack={() => setSelectedPublicRoute(null)} />;
   }
   if (selectedGuide)
     if (selectedGuide.title === "Plan de Ruta") {
@@ -785,6 +873,44 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
         </nav>
       </header>
       <main className="content">
+        <section className="community-locals-section">
+          <div className="section-title">
+            <div><h2>Locales de la comunidad</h2><p>Descubre lugares publicados por sus dueños.</p></div>
+            <button type="button" onClick={() => setSelectedGuide({ title: "Locales de la comunidad" })}>Ver todos</button>
+          </div>
+          {localsLoadError && <p className="community-section-status">No se pudieron cargar los locales publicados.</p>}
+          {!localsLoadError && communityLocals.length === 0 && <p className="community-section-status">Aún no hay locales publicados.</p>}
+          <div className="community-locals-grid">
+            {communityLocals.slice(0, 4).map((local) => {
+              const publicLocal = toPublicLocation(local);
+              return <button className="community-local-card" type="button" key={local.id} onClick={() => setSelectedGuide({ title: "Locales de la comunidad" })}>
+                {publicLocal.image_url ? <img src={publicLocal.image_url} alt="" /> : <span className="community-local-card-placeholder">⌂</span>}
+                <span className="community-local-card-copy"><small>{publicLocal.type}</small><strong>{publicLocal.name}</strong><span>{publicLocal.address}</span></span>
+                <span className="community-local-card-arrow">→</span>
+              </button>;
+            })}
+          </div>
+        </section>
+        <section className="public-routes-section">
+          <div className="section-title"><div><h2>Rutas de la comunidad</h2><p>Recorridos compartidos por quienes conocen la bahía.</p></div></div>
+          {routesLoadError && <p className="public-routes-status">No se pudieron cargar las rutas públicas.</p>}
+          {!routesLoadError && publicRoutes.length === 0 && <p className="public-routes-status">Aún no hay rutas públicas para mostrar.</p>}
+          <div className="public-routes-grid">
+            {publicRoutes.map((route) => {
+              const stops = route.puntos ?? route.ruta_puntos ?? route.points ?? [];
+              const owner = route.usuario?.nombre ?? route.usuario?.full_name ?? route.owner?.nombre ?? route.propietario_nombre ?? route.nombre_propietario ?? route.author_name;
+              return <article className="public-route-card" role="button" tabIndex={0} key={route.id ?? route.ruta_id} onClick={() => setSelectedPublicRoute(route)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedPublicRoute(route); } }}>
+                <span className="public-route-card-image" style={{ backgroundImage: `url("${getRouteImage(route.categoria)}")` }} />
+                <span className="public-route-category">{route.categoria || "Ruta general"}</span>
+                <h3>{route.titulo ?? route.titulo_ruta ?? route.title ?? "Ruta de la comunidad"}</h3>
+                {route.mostrar_propietario !== false && owner && <p className="public-route-owner">Dueño: {owner}</p>}
+                {route.descripcion && <p>{route.descripcion}</p>}
+                {stops.length > 0 && <ol>{stops.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).map((stop, index) => <li key={stop.id ?? `${stop.nombre ?? stop.name}-${index}`}>{stop.nombre ?? stop.name}</li>)}</ol>}
+                <span className="public-route-card-action">Ver ruta <b>→</b></span>
+              </article>;
+            })}
+          </div>
+        </section>
         <Radar
           onAction={showNotice}
           locations={communityLocals.map(toPublicLocation)}
@@ -795,24 +921,6 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
           routeError={routeError}
           onOpen={() => setSelectedGuide({ title: "Plan de Ruta" })}
         />
-        <section className="public-routes-section">
-          <div className="section-title"><div><h2>Rutas de la comunidad</h2><p>Recorridos compartidos por quienes conocen la bahía.</p></div></div>
-          {routesLoadError && <p className="public-routes-status">No se pudieron cargar las rutas públicas.</p>}
-          {!routesLoadError && publicRoutes.length === 0 && <p className="public-routes-status">Aún no hay rutas públicas para mostrar.</p>}
-          <div className="public-routes-grid">
-            {publicRoutes.map((route) => {
-              const stops = route.puntos ?? route.ruta_puntos ?? route.points ?? [];
-              const owner = route.usuario?.nombre ?? route.usuario?.full_name ?? route.owner?.nombre ?? route.propietario_nombre ?? route.nombre_propietario ?? route.author_name;
-              return <article className="public-route-card" key={route.id ?? route.ruta_id}>
-                <span className="public-route-category">{route.categoria || "Ruta general"}</span>
-                <h3>{route.titulo ?? route.titulo_ruta ?? route.title ?? "Ruta de la comunidad"}</h3>
-                {route.mostrar_propietario !== false && owner && <p className="public-route-owner">Dueño: {owner}</p>}
-                {route.descripcion && <p>{route.descripcion}</p>}
-                {stops.length > 0 && <ol>{stops.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).map((stop, index) => <li key={stop.id ?? `${stop.nombre ?? stop.name}-${index}`}>{stop.nombre ?? stop.name}</li>)}</ol>}
-              </article>;
-            })}
-          </div>
-        </section>
         <section className="guides-section">
           <div className="section-title">
             <div>
