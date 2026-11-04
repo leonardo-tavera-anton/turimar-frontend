@@ -94,16 +94,12 @@ export async function getLocalRating(localId) {
   } catch (error) {
     if (!canUseSupabaseFallback(error)) throw error;
     const { data, error: queryError } = await supabase
-      .from("calificaciones")
-      .select("estrellas")
-      .eq("entidad_tipo", "local")
-      .eq("entidad_id", localId);
+      .from("resumen_calificaciones_locales")
+      .select("promedio,total")
+      .eq("local_id", localId)
+      .maybeSingle();
     if (queryError) throw new Error(`No se pudieron cargar las estrellas: ${queryError.message}`);
-    const ratings = data ?? [];
-    return {
-      promedio: ratings.length ? ratings.reduce((sum, rating) => sum + rating.estrellas, 0) / ratings.length : 0,
-      total: ratings.length,
-    };
+    return data ?? { promedio: 0, total: 0 };
   }
 }
 
@@ -119,6 +115,8 @@ export async function rateLocal(localId, userId, stars) {
       .eq("usuario_id", userId)
       .eq("entidad_tipo", "local")
       .eq("entidad_id", localId)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (lookupError) throw new Error(`No se pudo guardar la calificación: ${lookupError.message}`);
     const query = existing
