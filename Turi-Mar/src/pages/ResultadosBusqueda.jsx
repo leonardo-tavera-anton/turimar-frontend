@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import "./Dashboard.css";
 import RealMap from "../components/dashboard/RealMap";
 import { getDrivingRoute } from "../services/directionsService";
-import { getLocalMenu, getLocalRating, rateLocal } from "../services/localService";
+import { getLocalMenu, getLocalRating, getMyLocalRating, rateLocal } from "../services/localService";
 import { supabase } from "../supabaseClient";
 
 // Pantalla de resultados de una guía: lista, filtros, mapa visual y ficha.
@@ -33,6 +33,8 @@ export default function ResultadosBusqueda({
   const [ratings, setRatings] = useState({});
   const [ratingSaving, setRatingSaving] = useState(false);
   const [ratingMessage, setRatingMessage] = useState("");
+  const [myRating, setMyRating] = useState(null);
+  const [myRatingChecked, setMyRatingChecked] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -40,6 +42,33 @@ export default function ResultadosBusqueda({
     getLocalRating(activeLocation.id)
       .then((rating) => { if (active) setRatings((current) => ({ ...current, [activeLocation.id]: rating })); })
       .catch(() => {});
+    return () => { active = false; };
+  }, [activeLocation?.id, activeLocation?.isCommunityLocal]);
+
+  useEffect(() => {
+    let active = true;
+    if (!activeLocation?.isCommunityLocal || !activeLocation.id) {
+      setMyRating(null);
+      setMyRatingChecked(true);
+      return () => { active = false; };
+    }
+    setMyRating(null);
+    setMyRatingChecked(false);
+    supabase.auth.getUser()
+      .then(async ({ data: { user }, error }) => {
+        if (error) throw error;
+        const rating = user ? await getMyLocalRating(activeLocation.id, user.id) : null;
+        if (active) {
+          setMyRating(rating);
+          setMyRatingChecked(true);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setMyRatingChecked(true);
+          setRatingMessage(error instanceof Error ? error.message : "No se pudo comprobar tu calificación.");
+        }
+      });
     return () => { active = false; };
   }, [activeLocation?.id, activeLocation?.isCommunityLocal]);
 
@@ -52,6 +81,7 @@ export default function ResultadosBusqueda({
       if (error) throw error;
       if (!user) throw new Error("Inicia sesión para calificar este local.");
       await rateLocal(activeLocation.id, user.id, stars);
+      setMyRating(stars);
       const summary = await getLocalRating(activeLocation.id);
       setRatings((current) => ({ ...current, [activeLocation.id]: summary }));
       setActiveLocation((current) => current ? { ...current, rating: Number(summary.promedio ?? 0).toFixed(1), ratingCount: summary.total ?? 0 } : current);
@@ -72,6 +102,8 @@ export default function ResultadosBusqueda({
     setPublicMenuOpen(false);
     setPublicMenuError("");
     setRatingMessage("");
+    setMyRating(null);
+    setMyRatingChecked(false);
     setActiveLocation(location);
     setZoomOnSelection(true);
   };
@@ -294,10 +326,10 @@ export default function ResultadosBusqueda({
               ) : <p className="detail-meta">A 650 m · 7 min a pie</p>}
               {activeLocation.isCommunityLocal && (
                 <div className="local-rating-control">
-                  <strong>{ratings[activeLocation.id]?.total ? `${Number(ratings[activeLocation.id].promedio).toFixed(1)} de 5 · ${ratings[activeLocation.id].total} calificaciones` : "Califica este local"}</strong>
+                  <strong>{myRating ? "Ya calificaste este local" : ratings[activeLocation.id]?.total ? `${Number(ratings[activeLocation.id].promedio).toFixed(1)} de 5 · ${ratings[activeLocation.id].total} calificaciones` : "Califica este local"}</strong>
                   <div role="group" aria-label={`Calificar ${activeLocation.name}`}>
                     {[1, 2, 3, 4, 5].map((stars) => (
-                      <button type="button" key={stars} aria-label={`${stars} estrellas`} disabled={ratingSaving} onClick={() => submitLocalRating(stars)}>★</button>
+                      <button type="button" key={stars} className={myRating && stars <= myRating ? "rated" : ""} aria-label={`${stars} estrellas`} disabled={ratingSaving || !myRatingChecked || myRating !== null} onClick={() => submitLocalRating(stars)}>★</button>
                     ))}
                   </div>
                   {ratingMessage && <small role="status">{ratingMessage}</small>}

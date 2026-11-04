@@ -103,6 +103,20 @@ export async function getLocalRating(localId) {
   }
 }
 
+export async function getMyLocalRating(localId, userId) {
+  const { data, error } = await supabase
+    .from("calificaciones")
+    .select("estrellas")
+    .eq("usuario_id", userId)
+    .eq("entidad_tipo", "local")
+    .eq("entidad_id", localId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`No se pudo comprobar tu calificación: ${error.message}`);
+  return data?.estrellas ?? null;
+}
+
 export async function rateLocal(localId, userId, stars) {
   const payload = { usuario_id: userId, entidad_tipo: "local", entidad_id: Number(localId), estrellas: stars };
   try {
@@ -119,10 +133,8 @@ export async function rateLocal(localId, userId, stars) {
       .limit(1)
       .maybeSingle();
     if (lookupError) throw new Error(`No se pudo guardar la calificación: ${lookupError.message}`);
-    const query = existing
-      ? supabase.from("calificaciones").update({ estrellas: stars }).eq("id", existing.id)
-      : supabase.from("calificaciones").insert(payload);
-    const { error: saveError } = await query;
+    if (existing) throw new Error("Ya calificaste este local. Solo se permite una calificación por persona.");
+    const { error: saveError } = await supabase.from("calificaciones").insert(payload);
     if (saveError) throw new Error(`No se pudo guardar la calificación: ${saveError.message}`);
     return payload;
   }

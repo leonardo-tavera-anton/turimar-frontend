@@ -1106,7 +1106,8 @@ footer{
 .local-rating-control{display:grid;gap:5px;margin:9px 0;padding:9px;border:1px solid #e1e9e8;border-radius:5px;background:#f8fbfa}
 .local-rating-control>strong{color:#42616b;font-size:10px}
 .local-rating-control>div{display:flex;gap:4px}
-.local-rating-control button{padding:1px 3px;border:0;background:transparent;color:#d2922a;font-size:23px;line-height:1;cursor:pointer}
+.local-rating-control button{padding:1px 3px;border:0;background:transparent;color:#a9b5b9;font-size:23px;line-height:1;cursor:pointer}
+.local-rating-control button.rated{color:#d2922a}
 .local-rating-control button:hover,.local-rating-control button:focus-visible{color:#e8a82e;transform:scale(1.12)}
 .local-rating-control button:disabled{opacity:.55;cursor:wait}
 .local-rating-control>small{color:#627782;font-size:10px}
