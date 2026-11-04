@@ -60,6 +60,7 @@ export async function crearRutaComunidad(route, points) {
       categoria: route.categoria ?? null,
       filtros: route.filtros ?? null,
       es_publica: route.es_publica ?? true,
+      mostrar_propietario: route.mostrar_propietario ?? true,
     };
     const { data, error: insertError } = await supabase
       .from("rutas")
@@ -140,6 +141,26 @@ export async function getUserRoutes(userId) {
     throw new Error("El backend devolvió un formato inesperado para tus rutas.");
   }
   return routes;
+}
+
+export async function getPublicRoutes() {
+  let data;
+  try {
+    data = await request("/api/v1/rutas");
+  } catch (error) {
+    if (!canUseSupabaseFallback(error)) throw error;
+    const { data: routes, error: queryError } = await supabase
+      .from("rutas")
+      .select("*, ruta_puntos(*)")
+      .eq("es_publica", true)
+      .order("created_at", { ascending: false });
+    if (queryError) throw new Error(`No se pudieron cargar las rutas públicas: ${queryError.message}`);
+    data = routes;
+  }
+  const routes = [data, data?.rutas, data?.routes, data?.data, data?.data?.rutas, data?.data?.routes]
+    .find(Array.isArray);
+  if (!routes) throw new Error("El backend devolvió un formato inesperado para las rutas públicas.");
+  return routes.filter((route) => route.es_publica !== false);
 }
 
 export function getCachedUserRoutes(userId) {

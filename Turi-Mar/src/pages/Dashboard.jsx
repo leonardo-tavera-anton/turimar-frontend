@@ -6,6 +6,7 @@ import RealMap from "../components/dashboard/RealMap";
 import { supabase } from "../supabaseClient";
 import PerfilCuenta from "./PerfilCuenta";
 import { getLocalMenu, getPublicLocals } from "../services/localService";
+import { getPublicRoutes } from "../services/routeService";
 
 // Mensaje inicial que aparece en el estado del radar costero.
 const DEFAULT_NOTICE = "GPS sincronizado: Caleta & Malecón Miguel Grau";
@@ -683,12 +684,22 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
   const [profile, setProfile] = useState(null);
   const [communityLocals, setCommunityLocals] = useState([]);
   const [localsLoadError, setLocalsLoadError] = useState("");
+  const [publicRoutes, setPublicRoutes] = useState([]);
+  const [routesLoadError, setRoutesLoadError] = useState("");
 
   useEffect(() => {
     let active = true;
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (active) setProfile(user);
     });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getPublicRoutes()
+      .then((routes) => { if (active) setPublicRoutes(routes); })
+      .catch((error) => { if (active) setRoutesLoadError(error.message); });
     return () => { active = false; };
   }, []);
 
@@ -784,6 +795,24 @@ export default function Dashboard({ onLogout, rutaData, routeError }) {
           routeError={routeError}
           onOpen={() => setSelectedGuide({ title: "Plan de Ruta" })}
         />
+        <section className="public-routes-section">
+          <div className="section-title"><div><h2>Rutas de la comunidad</h2><p>Recorridos compartidos por quienes conocen la bahía.</p></div></div>
+          {routesLoadError && <p className="public-routes-status">No se pudieron cargar las rutas públicas.</p>}
+          {!routesLoadError && publicRoutes.length === 0 && <p className="public-routes-status">Aún no hay rutas públicas para mostrar.</p>}
+          <div className="public-routes-grid">
+            {publicRoutes.map((route) => {
+              const stops = route.puntos ?? route.ruta_puntos ?? route.points ?? [];
+              const owner = route.usuario?.nombre ?? route.usuario?.full_name ?? route.owner?.nombre ?? route.propietario_nombre ?? route.nombre_propietario ?? route.author_name;
+              return <article className="public-route-card" key={route.id ?? route.ruta_id}>
+                <span className="public-route-category">{route.categoria || "Ruta general"}</span>
+                <h3>{route.titulo ?? route.titulo_ruta ?? route.title ?? "Ruta de la comunidad"}</h3>
+                {route.mostrar_propietario !== false && owner && <p className="public-route-owner">Dueño: {owner}</p>}
+                {route.descripcion && <p>{route.descripcion}</p>}
+                {stops.length > 0 && <ol>{stops.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).map((stop, index) => <li key={stop.id ?? `${stop.nombre ?? stop.name}-${index}`}>{stop.nombre ?? stop.name}</li>)}</ol>}
+              </article>;
+            })}
+          </div>
+        </section>
         <section className="guides-section">
           <div className="section-title">
             <div>
